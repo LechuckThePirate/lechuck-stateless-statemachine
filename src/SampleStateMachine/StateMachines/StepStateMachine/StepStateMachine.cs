@@ -3,14 +3,13 @@ using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
 using LeChuck.Stateless.StateMachine;
-using LeChuck.StateMachine;
 
 namespace SampleStateMachine.StateMachines.StepStateMachine
 {
 
-    public interface IStepStateMachine : IStateMachine { }
+    public interface IStepStateMachine : IStateMachine<StepModel> { }
 
-    public class StepStateMachine : StateMachine, IStepStateMachine
+    public class StepStateMachine : StateMachine<StepModel>, IStepStateMachine
     {
         private StepModel _model { get; set; } = new StepModel();
 
@@ -33,14 +32,14 @@ namespace SampleStateMachine.StateMachines.StepStateMachine
             _model = (dict.ContainsKey(nameof(_model))) ? (StepModel) dict[nameof(_model)] : null;
         }
 
-        protected override async Task<bool> OnCommand(string command, string payload = null)
+        protected override async Task<bool> OnCommand(string command, StepModel payload = null)
         {
             // Only cancel command works here... 
             Console.WriteLine("The machine has been cancelled!");
             return await Task.FromResult(true);
         }
 
-        protected override async Task OnNewState(string newState)
+        protected override async Task OnNewState(string newState, StepModel payload = null)
         {
             // Be nice and don't switch use a Selector pattern here!! this is just a demo
             switch (newState)
@@ -74,7 +73,7 @@ namespace SampleStateMachine.StateMachines.StepStateMachine
             // do nothing just for demo purpose
         }
 
-        protected override async Task<bool> OnNextStep(string currentState, string payload)
+        protected override async Task<bool> OnNextStep(string currentState, StepModel payload = null)
         {
             // Be nice and don't switch use a Selector pattern here!! this is just a demo
             switch (currentState)

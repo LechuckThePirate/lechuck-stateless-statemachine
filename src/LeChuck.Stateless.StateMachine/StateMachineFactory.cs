@@ -1,7 +1,10 @@
-﻿using System;
+﻿#region
+
+using System;
 using System.Threading.Tasks;
-using LeChuck.StateMachine;
 using Microsoft.Extensions.Logging;
+
+#endregion
 
 namespace LeChuck.Stateless.StateMachine
 {
@@ -11,33 +14,50 @@ namespace LeChuck.Stateless.StateMachine
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<StateMachineFactory> _logger;
 
-        public StateMachineFactory(IStateMachineStore store, IServiceProvider serviceProvider, ILogger<StateMachineFactory> logger)
+        public StateMachineFactory(IStateMachineStore store, IServiceProvider serviceProvider,
+            ILogger<StateMachineFactory> logger)
         {
             _store = store ?? throw new ArgumentNullException(nameof(store));
             _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        public async Task<IStateMachine> Retrieve(string machineId)
+        public async Task<IStateMachine<TContext, TEntity>> Retrieve<TContext, TEntity>(string machineId)
+            where TContext : class
+            where TEntity : class
         {
-            var (machineType, machineData) = await _store.Retrieve(machineId);
+            var (machineType, machineData) = await _store.RetrieveMachine(machineId);
             if (machineType == null)
                 return null;
 
-            var machine = (IStateMachine)_serviceProvider.GetService(machineType);
+            var machine = (IStateMachine<TContext, TEntity>) _serviceProvider.GetService(machineType);
             machine?.DeserializeData(machineData);
             return machine;
         }
 
-        public async Task<TMachine> Create<TMachine>(string machineId) where TMachine : IStateMachine
+        public async Task<IStateMachine> Retrieve(string machineId)
+        {
+            var (machineType, machineData) = await _store.RetrieveMachine(machineId);
+            if (machineType == null)
+                return null;
+
+            var machine = (IStateMachine) _serviceProvider.GetService(machineType);
+            machine?.DeserializeData(machineData);
+            return machine;
+        }
+
+        public async Task<IStateMachine<TContext, TEntity>> Create<TContext, TEntity>(string machineId)
+            where TContext : class
+            where TEntity : class
         {
             _logger.LogTrace($"Creating machine '{machineId}'");
-            var machine = (TMachine)_serviceProvider.GetService(typeof(TMachine));
+            var machine =
+                (IStateMachine<TContext, TEntity>) _serviceProvider.GetService(
+                    typeof(IStateMachine<TContext, TEntity>));
             machine.MachineId = machineId;
             var machineInterface = machine.MachineType;
             await _store.StoreMachine(machine.MachineId, machineInterface, machine.SerializeData());
             return machine;
         }
-
     }
 }

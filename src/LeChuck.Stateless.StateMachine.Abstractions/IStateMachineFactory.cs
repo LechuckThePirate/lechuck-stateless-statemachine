@@ -1,10 +1,21 @@
-﻿using System.Threading.Tasks;
+﻿#region
 
-namespace LeChuck.StateMachine
+using System.Threading.Tasks;
+
+#endregion
+
+namespace LeChuck.Stateless.StateMachine
 {
     public interface IStateMachineFactory
     {
+        Task<IStateMachine<TContext, TEntity>> Retrieve<TContext, TEntity>(string machineId)
+            where TContext : class
+            where TEntity : class;
+
         Task<IStateMachine> Retrieve(string machineId);
-        Task<TMachine> Create<TMachine>(string machineId) where TMachine : IStateMachine;
+
+        Task<IStateMachine<TContext, TEntity>> Create<TContext, TEntity>(string machineId)
+            where TContext : class
+            where TEntity : class;
     }
 }

@@ -1,9 +1,8 @@
 ﻿using System;
 using System.Linq;
 using LeChuck.Stateless.StateMachine;
+using LeChuck.Stateless.StateMachine.Exceptions;
 using LeChuck.Stateless.StateMachine.Extensions;
-using LeChuck.StateMachine;
-using LeChuck.StateMachine.Exceptions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -29,22 +28,65 @@ namespace SampleStateMachine
                 Console.WriteLine("  2 - Lock: Simple state machine to control a locking mechanism");
                 Console.WriteLine("  0 - Exit app");
 
-                IStateMachine machine = null;
                 switch (Console.ReadKey().KeyChar)
                 {
                     case '1':
-                        machine = machineFactory.Create<IStepStateMachine>("stepMachine").GetAwaiter().GetResult();
-                        RunStepMachine(machine, StepStateMachineWorkflow.States.Done, StepStateMachineWorkflow.States.Cancelled);
+                        var stepMachine = machineFactory.Create<IStepStateMachine>("stepMachine").GetAwaiter().GetResult();
+                        RunStepMachine(stepMachine, StepStateMachineWorkflow.States.Done, StepStateMachineWorkflow.States.Cancelled);
                         break;
                     case '2':
-                        machine = machineFactory.Create<ILockStateMachine>("lockMachine").GetAwaiter().GetResult();
-                        RunMachine(machine, LockStateMachineWorkflow.States.Finished);
+                        var lockMachine = machineFactory.Create<ILockStateMachine>("lockMachine").GetAwaiter().GetResult();
+                        RunLockMachine(lockMachine, LockStateMachineWorkflow.States.Finished);
                         break;
                     case '0':
                         return;
                 }
             }
         }
+
+        static void RunLockMachine(ILockStateMachine machine, params string[] finishStates) 
+        {
+            while (!finishStates.Contains(machine.State))
+            {
+                Console.Clear();
+                Console.WriteLine($"Running {machine.MachineType} instance {machine.MachineId}");
+                Console.WriteLine();
+                Console.WriteLine($"Current machine state: {machine.State}");
+
+                int i = 0;
+                var available = machine.GetAvailableCommands().ToArray();
+                if (!available?.Any() ?? true)
+                    throw new BadCommandException();
+                var commands = string.Join("\n", available.Select(c => $"  {++i} - {c}."));
+                Console.WriteLine($"\nAvailable Commands:\n{commands}");
+                Console.Write("Press number: ");
+
+                var key = $"{Console.ReadKey().KeyChar}";
+                if (int.TryParse(key, out int option) && option <= available.Length)
+                {
+                    machine.ExecuteCommand(available[option - 1]);
+                }
+            }
+
+            Console.Write("\nExiting machine... Press any key...");
+            Console.ReadKey();
+        }
+
+        static void RunStepMachine(IStepStateMachine machine, params string[] finishStates)
+        {
+            Console.Clear();
+            Console.WriteLine($"Running {machine.MachineType} instance {machine.MachineId}");
+            Console.WriteLine();
+
+            while (!finishStates.Contains(machine.State))
+            {
+                machine.ExecuteStep();
+            }
+
+            Console.Write("\nExiting machine... Press any key...");
+            Console.ReadKey();
+        }
+
 
         static IConfiguration GetConfiguration()
         {
@@ -74,50 +116,6 @@ namespace SampleStateMachine
             return services.BuildServiceProvider();
 
         }
-
-        static void RunMachine(IStateMachine machine, params string[] finishStates)
-        {
-            while (!finishStates.Contains(machine.State))
-            {
-                Console.Clear();
-                Console.WriteLine($"Running {machine.MachineType} instance {machine.MachineId}");
-                Console.WriteLine();
-                Console.WriteLine($"Current machine state: {machine.State}");
-
-                int i = 0;
-                var available = machine.GetAvailableCommands().ToArray();
-                if (!available?.Any() ?? true)
-                    throw new BadCommandException();
-                var commands = string.Join("\n", available.Select(c => $"  {++i} - {c}."));
-                Console.WriteLine($"\nAvailable Commands:\n{commands}");
-                Console.Write("Press number: ");
-
-                var key = $"{Console.ReadKey().KeyChar}";
-                if (int.TryParse(key, out int option) && option <= available.Length)
-                {
-                    machine.ExecuteCommand(available[option - 1]);
-                }
-            }
-
-            Console.Write("\nExiting machine... Press any key...");
-            Console.ReadKey();
-        }
-
-        static void RunStepMachine(IStateMachine machine, params string[] finishStates)
-        {
-            Console.Clear();
-            Console.WriteLine($"Running {machine.MachineType} instance {machine.MachineId}");
-            Console.WriteLine();
-
-            while (!finishStates.Contains(machine.State))
-            {
-                machine.ExecuteStep();
-            }
-
-            Console.Write("\nExiting machine... Press any key...");
-            Console.ReadKey();
-        }
-
     }
 
 }

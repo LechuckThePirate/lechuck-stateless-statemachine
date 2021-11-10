@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using LeChuck.StateMachine.Models;
+using LeChuck.Stateless.StateMachine.Models;
 
 namespace SampleStateMachine.StateMachines.StepStateMachine
 {

@@ -1,171 +1,209 @@
-﻿using System;
+﻿#region
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LeChuck.Stateless.StateMachine.Exceptions;
 using LeChuck.Stateless.StateMachine.Extensions;
-using LeChuck.StateMachine;
-using LeChuck.StateMachine.Exceptions;
-using LeChuck.StateMachine.Models;
+using LeChuck.Stateless.StateMachine.Models;
+using Microsoft.Extensions.Logging;
+
+#endregion
 
 namespace LeChuck.Stateless.StateMachine
 {
-    public abstract class StateMachine : IStateMachine 
+    public abstract class StateMachine<TContext, TEntity> : IStateMachine<TContext, TEntity>
+        where TContext : class
+        where TEntity : class, new()
     {
+        protected TEntity Entity = new TEntity();
+        protected Dictionary<string, string> StateParams { get; set; } = new Dictionary<string, string>();
         public string MachineId { get; set; }
         public string State { get; protected set; }
         public Type MachineType { get; set; }
 
         protected readonly StateMachineWorkflow Workflow;
         private readonly IStateMachineStore _store;
+        private readonly ILogger _logger;
+        private readonly IStateMachineStrategySelector<TContext, TEntity> _strategySelector;
 
-        protected StateMachine(StateMachineWorkflow workflow, IStateMachineStore store)
+        protected StateMachine(StateMachineWorkflow workflow, IStateMachineStore stateMachineStore, ILogger logger,
+            IStateMachineStrategySelector<TContext, TEntity> strategySelector)
         {
             Workflow = workflow ?? throw new ArgumentNullException(nameof(workflow));
             State = workflow.InitialState ?? throw new ArgumentException("No initial state was specified");
-            _store = store ?? throw new ArgumentNullException(nameof(store));
-            MachineType = this.GetType().GetStateMachineInterface();
+            _store = stateMachineStore ?? throw new ArgumentNullException(nameof(stateMachineStore));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _strategySelector = strategySelector;
+            MachineType = GetType().GetStateMachineInterface();
         }
 
-        // Abstract methods to implement in derived class
-        /// <summary>
-        /// It's called whenever a ExecuteCommand is done on the machine
-        /// </summary>
-        /// <param name="command">The command that was just executed</param>
-        /// <param name="payload">The 'payload' or parameters for the command if there are any</param>
-        /// <returns>Returning False will cancel the next step operation. I.E: validation failed!</returns>
-        protected abstract Task<bool> OnCommand(string command, string payload = null);
-
-        /// <summary>
-        /// It's called whenever a ExecuteStep is done on the machine, before the
-        /// next step is executed to allow behavior before moving to next step
-        /// </summary>
-        /// <param name="currentState">Current State of the machine before switching to next step</param>
-        /// <param name="payload">The 'payload' or parameters to execute any action before next step</param>
-        /// <returns>Returning False will cancel the next step operation. I.E: validation failed!</returns>
-        protected abstract Task<bool> OnNextStep(string currentState, string payload);
-
-        /// <summary>
-        /// It's called wheneve the machine goes into a new state. Useful for sending info to screen, user, etc...
-        /// </summary>
-        /// <param name="newState">New machine's state</param>
-        protected abstract Task OnNewState(string newState);
-
-        /// <summary>
-        /// Executes a command on the machine. If the command is invalid (for that state) will
-        /// throw a BadCommandException();
-        /// </summary>
-        /// <param name="command">Command to execute</param>
-        /// <param name="payload">Parameters if needed</param>
-        public virtual async Task ExecuteCommand(string command, string payload = null)
+        protected virtual async Task<bool> OnCommand(string command, TContext context = default)
         {
-            var currentState = Workflow.StateList.FirstOrDefault(s => s.Name == State)
-                               ?? throw new InvalidStateException(State);
+            _logger.LogInformation($"OnCommand('{command}','{context}')");
+            return await RunStrategy(context, command);
+        }
 
-            if (!currentState.AvailableCommands.ContainsKey(command))
+        protected virtual async Task OnNewState(string newState, TContext context = default)
+        {
+            _logger.LogInformation($"OnNewState('{newState}')");
+            await RunStrategy(context, newState);
+        }
+
+        public TEntity GetEntity()
+        {
+            return Entity;
+        }
+
+        public virtual async Task ExecuteCommand(string command, TContext context = null)
+        {
+            if (!Workflow.GetState(State).AvailableCommands.ContainsKey(command))
                 throw new BadCommandException();
 
-            if (await OnCommand(command, payload)) 
-                await SetNewState(currentState.AvailableCommands[command]);
+            if (await OnCommand(command, context))
+                await SetNewState(Workflow.GetState(State).AvailableCommands[command], context);
 
             await PersistMachine();
         }
 
-        /// <summary>
-        /// Moves the machine to the next step, unless some validation in OnNextStep returns
-        /// false.
-        /// </summary>
-        /// <param name="payload">Optional parameters</param>
-        public async Task ExecuteStep(string payload)
-        {
-            if (await OnNextStep(State, payload))
-                await NextStep();
-        }
-
-        /// <summary>
-        /// Restarts the machine
-        /// </summary>
         public virtual async Task Reset()
         {
             await SetNewState(Workflow.InitialState);
             await PersistMachine();
         }
 
-        /// <summary>
-        /// Moves the machine to the next step without any validation nor parameters
-        /// </summary>
-        public async Task NextStep()
-        {
-            var currentState = Workflow.StateList.FirstOrDefault(s => s.Name == State)
-                               ?? throw new InvalidStateException(State);
-            var nextState = currentState.NextState ?? throw new InvalidStateException($"No next state for {State}");
-            await SetNewState(nextState);
-            await PersistMachine();
-        }
-
-        /// <summary>
-        /// Moves the machine to the previous step without any validation nor parameters.
-        /// </summary>
-        public async Task PrevStep()
-        {
-            var currentState = Workflow.StateList.FirstOrDefault(s => s.Name == State)
-                               ?? throw new InvalidStateException(State);
-            var prevState = currentState.PrevState ?? throw new InvalidStateException($"No prev state for {State}");
-            await SetNewState(prevState);
-            await PersistMachine();
-        }
-
-        /// <summary>
-        /// Returns the available commands in the current machine state
-        /// </summary>
-        /// <returns>List of string commands available in current state</returns>
         public IEnumerable<string> GetAvailableCommands()
         {
-            return Workflow.StateList?.FirstOrDefault(s => s.Name == State)?.AvailableCommands?.Select(k => k.Key);
+            return Workflow.StateList?.FirstOrDefault(s => s.Name == State)?
+                .AvailableCommands?.Select(k => k.Key);
         }
 
-        /// <summary>
-        /// Moves the machine to a specific state
-        /// </summary>
-        /// <param name="newState">New state for the machine</param>
-        protected async Task SetNewState(string newState)
+        public async Task ExecuteCommand(string command, dynamic context = null)
+        {
+            await ExecuteCommand(command, context as TContext);
+        }
+
+        public async Task ExecuteStep(object context = default)
+        {
+            await ExecuteStep(context as TContext);
+        }
+
+        public async Task Run(string startInState = null, object context = default, object entity = default)
+        {
+            await Run(startInState, context as TContext, entity as TEntity);
+        }
+
+        public void SetParameter(string key, object value)
+        {
+            if (StateParams.ContainsKey(key))
+                StateParams[key] = JsonSerializer.Serialize(value);
+            else
+                StateParams.Add(key, JsonSerializer.Serialize(value));
+        }
+
+        public T GetParameter<T>(string key)
+        {
+            try
+            {
+                return (StateParams.ContainsKey(key))
+                    ? JsonSerializer.Deserialize<T>(StateParams[key])
+                    : default;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning($"Parameter type mismatch! {key}\n" +
+                                   $"{ex.Message}\n" +
+                                   $"{ex.StackTrace}");
+                return default;
+            }
+        }
+
+        public StepMachineState GetCurrentState()
+        {
+            return GetState(State);
+        }
+
+        public StepMachineState GetState(string state)
+        {
+            return Workflow.StateList.FirstOrDefault(s => s.Name.ToString() == state)
+                   ?? throw new InvalidStateException(state);
+        }
+
+        public async Task Run(string startInState = null, TContext context = default, TEntity entity = default)
+        {
+            State = startInState ?? State;
+            Entity = entity ?? new TEntity();
+            await OnNewState(State, context);
+            await PersistMachine();
+        }
+
+        public void SetEntity(TEntity entity)
+        {
+            this.Entity = entity;
+        }
+
+        protected virtual async Task SetNewState(string newState, TContext context = default)
         {
             State = newState;
-            await OnNewState(State);
+            await OnNewState(newState, context);
         }
 
-        /// <summary>
-        /// Persists the machine using the injected IStateMachineStore object
-        /// </summary>
         protected async Task PersistMachine()
         {
-            await _store.StoreMachine(MachineId, MachineType, SerializeData());
+            if (GetCurrentState().EndMachine)
+                await _store.DeleteMachine(MachineId);
+            else
+                await _store.StoreMachine(MachineId, MachineType, SerializeData());
         }
 
-        /// <summary>
-        /// Serializes the data to persist in storage. Override if you need to add custom data.
-        /// </summary>
-        /// <returns>Serialized information of the machine (can be deserialized as Dictionary&lt;string,string&gt;)</returns>
         public virtual string SerializeData()
         {
             var data = new
             {
                 MachineId,
-                State
+                State,
+                Entity = JsonSerializer.Serialize(Entity),
+                StateParams = JsonSerializer.Serialize(StateParams)
             };
 
             return JsonSerializer.Serialize(data);
         }
 
-        /// <summary>
-        /// Deserialize the machine info generated by SerializeData. Override to deserialize additional custom fields
-        /// </summary>
-        /// <param name="data"></param>
         public virtual void DeserializeData(string data)
         {
             var dict = JsonSerializer.Deserialize<IDictionary<string, object>>(data);
             MachineId = dict.ContainsKey(nameof(MachineId)) ? dict[nameof(MachineId)]?.ToString() : null;
             State = dict.ContainsKey(nameof(State)) ? dict[nameof(State)]?.ToString() : default;
+            Entity = (dict.ContainsKey(nameof(Entity)))
+                ? JsonSerializer.Deserialize<TEntity>(dict[nameof(Entity)].ToString())
+                : null;
+            StateParams = (dict.ContainsKey(nameof(StateParams)))
+                ? JsonSerializer.Deserialize<Dictionary<string, string>>(dict[nameof(StateParams)].ToString())
+                : new Dictionary<string, string>();
+        }
+
+        protected async Task<bool> RunStrategy(TContext context, string strategyName)
+        {
+            var strategy = _strategySelector.GetHandlerFor(strategyName);
+            try
+            {
+                if (strategy == null)
+                {
+                    _logger.LogInformation($"No strategy found for '{strategyName}'");
+                    return true;
+                }
+
+                return await strategy.Handle(context, this);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Error executing strategy {strategyName}\n" +
+                                 $"{ex.Message}\n" +
+                                 $"{ex.StackTrace}", ex);
+                return false;
+            }
         }
 
         public override string ToString()

@@ -1,16 +1,22 @@
-﻿using System;
+﻿#region
+
 using System.Collections.Generic;
 
-namespace LeChuck.StateMachine.Models
+#endregion
+
+namespace LeChuck.Stateless.StateMachine.Models
 {
     public class StepMachineState
     {
-        public String Name { get; set; }
-        public string NextState { get; set; }
-        public string PrevState { get; set; }
-        public Dictionary<string, string> AvailableCommands { get; set; }
+        public string Name { get; set; }
+        public string OnNext { get; set; }
+        public string OnPrev { get; set; }
+        public Dictionary<string, string> AvailableCommands { get; set; } = new Dictionary<string, string>();
+        public bool EndMachine { get; set; }
 
-        public StepMachineState() {}
+        public StepMachineState()
+        {
+        }
 
         public StepMachineState(string name)
         {

@@ -1,6 +1,9 @@
-﻿using System;
+﻿#region
+
+using System;
 using System.Linq;
-using LeChuck.StateMachine;
+
+#endregion
 
 namespace LeChuck.Stateless.StateMachine.Extensions
 {
@@ -10,6 +13,5 @@ namespace LeChuck.Stateless.StateMachine.Extensions
         {
             return machineType.GetInterfaces().FirstOrDefault(i => i.GetInterfaces().Contains(typeof(IStateMachine)));
         }
-
     }
 }

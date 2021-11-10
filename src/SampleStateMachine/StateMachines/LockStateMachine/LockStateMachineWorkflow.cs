@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Text;
-using LeChuck.StateMachine.Models;
+using LeChuck.Stateless.StateMachine.Models;
 
 namespace SampleStateMachine.StateMachines.LockStateMachine
 {

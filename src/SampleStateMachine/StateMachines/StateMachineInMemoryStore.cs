@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
-using LeChuck.StateMachine;
+using LeChuck.Stateless.StateMachine;
 using Microsoft.Extensions.Logging;
 
 namespace SampleStateMachine.StateMachines

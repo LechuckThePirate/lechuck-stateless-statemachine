@@ -1,22 +1,35 @@
-﻿using System;
-using System.Collections;
+﻿#region
+
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace LeChuck.StateMachine
+#endregion
+
+namespace LeChuck.Stateless.StateMachine
 {
-    public interface IStateMachine 
+    public interface IStateMachine
     {
         string MachineId { get; set; }
         string State { get; }
         string SerializeData();
-        void DeserializeData(string data);
         Type MachineType { get; }
-        Task ExecuteCommand(string command, string payload = null);
-        Task ExecuteStep(string payload = null);
+        void DeserializeData(string data);
         Task Reset();
-        Task NextStep();
-        Task PrevStep();
         IEnumerable<string> GetAvailableCommands();
+        Task ExecuteCommand(string command, dynamic context = default);
+        Task Run(string startInState = null, object context = default, object entity = default);
+        void SetParameter(string key, object value);
+        T GetParameter<T>(string key);
+    }
+
+    public interface IStateMachine<in TContext, TEntity> : IStateMachine
+        where TContext : class
+        where TEntity : class
+    {
+        TEntity GetEntity();
+        Task ExecuteCommand(string command, TContext context = default);
+        Task Run(string startInState = null, TContext context = default, TEntity entity = default);
+        void SetEntity(TEntity entity);
     }
 }

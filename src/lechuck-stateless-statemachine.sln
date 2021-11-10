@@ -7,10 +7,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LeChuck.Stateless.StateMach
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LeChuck.Stateless.StateMachine", "LeChuck.Stateless.StateMachine\LeChuck.Stateless.StateMachine.csproj", "{6C05B744-C1CC-4AB4-8ABD-C8F1A6215C17}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{A9D746E2-6C67-4CC3-974A-6E8B359607DA}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SampleStateMachine", "SampleStateMachine\SampleStateMachine.csproj", "{9B38EC47-9357-4D0A-943E-669BE5DFF563}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,24 +41,11 @@ Global
 		{6C05B744-C1CC-4AB4-8ABD-C8F1A6215C17}.Release|x64.Build.0 = Release|Any CPU
 		{6C05B744-C1CC-4AB4-8ABD-C8F1A6215C17}.Release|x86.ActiveCfg = Release|Any CPU
 		{6C05B744-C1CC-4AB4-8ABD-C8F1A6215C17}.Release|x86.Build.0 = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|x64.Build.0 = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Debug|x86.Build.0 = Debug|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|x64.ActiveCfg = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|x64.Build.0 = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|x86.ActiveCfg = Release|Any CPU
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{9B38EC47-9357-4D0A-943E-669BE5DFF563} = {A9D746E2-6C67-4CC3-974A-6E8B359607DA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {0813B11D-36AB-40B2-8C80-1DD866AC1C6D}

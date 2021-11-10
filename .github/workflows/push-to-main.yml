@@ -1,0 +1,48 @@
+name: .NET
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  nugetFeedName: LeChuck.Packages
+  nugetFeedSource: 'https://nuget.pkg.github.com/LeChuckThePirate/index.json'
+  ArtifactStagingDirectory: '/tmp'
+  
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+
+    - name: Auth NuGet
+      run: nuget sources add -Name ${{ env.nugetFeedName }} -Source ${{ env.nugetFeedSource }} -username LeChuckThePirate -password ${{ secrets.MAIN_GITHUB_TOKEN }}
+
+    - name: Add Dotnet NuGet Sources
+      run: dotnet nuget add source ${{ env.nugetFeedSource }} -n "GitHubPackages" -u LeChuckThePirate -p ${{ secrets.MAIN_GITHUB_TOKEN }} --store-password-in-clear-text
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      working-directory: ./src
+      
+    - name: Build
+      run: dotnet build -c Release
+      working-directory: ./src
+
+    - name: Pack Abstractions
+      run: dotnet pack --configuration Release --output ${{ env.ArtifactStagingDirectory }} ./LeChuck.Stateless.StateMachine.Abstractions.csproj --verbosity normal
+      working-directory: ./src/LeChuck.Stateless.StateMachine.Abstractions
+
+    - name: Pack Library
+      run: dotnet pack --configuration Release --output ${{ env.ArtifactStagingDirectory }} ./LeChuck.Stateless.StateMachine.csproj --verbosity normal
+      working-directory: ./src/LeChuck.Stateless.StateMachine
+
+    - name: Publish
+      run: nuget push "${{ env.ArtifactStagingDirectory }}/*.nupkg" ${{ secrets.MAIN_GITHUB_TOKEN }} -Source "${{ env.nugetFeedSource }}" -SkipDuplicate
+
